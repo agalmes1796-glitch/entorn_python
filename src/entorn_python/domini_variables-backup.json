@@ -1,0 +1,87 @@
+{
+  "id": {
+    "tipus": "text",
+    "exemple": "R0231",
+    "patro": "R\\d{4}"
+  },
+  "client_id": {
+    "tipus": "text",
+    "exemple": "C155"
+  },
+  "zona": {
+    "valors": [
+      "CALVIA",
+      "Calvia",
+      "Calvià",
+      "LLEVANT",
+      "Llevant",
+      "NORD",
+      "Nord",
+      "PALMA",
+      "Palma",
+      "llevant ",
+      "nord",
+      "palma "
+    ]
+  },
+  "km": {
+    "rang": [
+      -65.7,
+      9999.0
+    ]
+  },
+  "import": {
+    "tipus": "text",
+    "exemple": "0,00"
+  },
+  "estat": {
+    "valors": [
+      "cancel·lada",
+      "cancelÂ·lada",
+      "confirmada",
+      "pendent"
+    ]
+  },
+  "canal": {
+    "valors": [
+      "APP",
+      "TELEFON",
+      "WEB"
+    ]
+  },
+  "creada_el": {
+    "tipus": "text",
+    "exemple": "2026-05-13"
+  },
+  "recollida_el": {
+    "tipus": "text",
+    "exemple": "2026-05-21"
+  },
+  "passatgers": {
+    "rang": [
+      0.0,
+      20.0
+    ]
+  },
+  "codi_postal": {
+    "tipus": "text",
+    "exemple": "07150"
+  },
+  "email": {
+    "tipus": "text",
+    "exemple": "client155@correu.cat"
+  },
+  "pagat": {
+    "valors": [
+      "0",
+      "1",
+      "No",
+      "Sí",
+      "false",
+      "no",
+      "si",
+      "true",
+      "x"
+    ]
+  }
+}

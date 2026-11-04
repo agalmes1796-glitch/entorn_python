@@ -1,0 +1,85 @@
+{
+  "id": {
+    "tipus": "text",
+    "exemple": "R0231",
+    "patro": "^R\\d{4}$",
+    "unic": true
+  },
+  "client_id": {
+    "tipus": "text",
+    "exemple": "C155",
+    "patro": "^C\\d{3}$"
+  },
+  "zona": {
+    "valors": [
+      "PALMA",
+      "CALVIA",
+      "LLEVANT",
+      "NORD"
+    ]
+  },
+  "km": {
+    "rang": [
+      1,
+      400
+    ]
+  },
+  "import": {
+    "tipus": "text",
+    "exemple": "0,00",
+    "rang": [
+      0,
+      1500
+    ],
+    "regla": "Si estat és cancel·lada, import ha de ser 0"
+  },
+  "estat": {
+    "valors": [
+      "confirmada",
+      "cancel·lada",
+      "pendent"
+    ]
+  },
+  "canal": {
+    "valors": [
+      "WEB",
+      "TELEFON",
+      "APP"
+    ]
+  },
+  "creada_el": {
+    "tipus": "text",
+    "exemple": "2026-05-13",
+    "patro": "^\\d{4}-\\d{2}-\\d{2}$",
+    "data_maxima": "2026-10-01"
+  },
+  "recollida_el": {
+    "tipus": "text",
+    "exemple": "2026-05-21",
+    "patro": "^\\d{4}-\\d{2}-\\d{2}$",
+    "regla": "Data igual o posterior a creada_el"
+  },
+  "passatgers": {
+    "rang": [
+      1,
+      8
+    ],
+    "tipus": "enter"
+  },
+  "codi_postal": {
+    "tipus": "text",
+    "exemple": "07150",
+    "patro": "^07\\d{3}$"
+  },
+  "email": {
+    "tipus": "text",
+    "exemple": "client155@correu.cat",
+    "patro": "^[^@\\s]+@[^@\\s]+$"
+  },
+  "pagat": {
+    "valors": [
+      "si",
+      "no"
+    ]
+  }
+}
