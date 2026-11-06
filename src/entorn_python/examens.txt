@@ -1,0 +1,3 @@
+13 -> introducció a sa IA Test
+16 -> programar amb agents Opencode
+18 -> Examen 4 pecats Carles
