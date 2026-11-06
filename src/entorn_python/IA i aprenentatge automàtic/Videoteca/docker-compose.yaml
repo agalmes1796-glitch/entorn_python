@@ -1,0 +1,89 @@
+services:
+  # Base de datos MariaDB del proyecto videoteca
+  mariadb:
+    image: mariadb:11.8
+    container_name: videoteca_mariadb
+    restart: unless-stopped
+    environment:
+      # Valores por defecto solo para desarrollo; externalizar en producción.
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-videoteca_root_dev}
+      MARIADB_DATABASE: videoteca
+      MARIADB_USER: ${MARIADB_USER:-videoteca}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+    ports:
+      # Solo local (127.0.0.1): no expone la BD a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:3306:3306"
+    volumes:
+      # Named volume gestionado por Docker (declarado en la sección global `volumes:`).
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # phpMyAdmin: gestor web de la base de datos
+  phpmyadmin:
+    # Tag estable fijado (evita "latest"); 5.2 es la última línea estable en Docker Hub (2026-10).
+    image: phpmyadmin/phpmyadmin:5.2
+    container_name: videoteca_phpmyadmin
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): no expone phpMyAdmin a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:8080:80"
+    environment:
+      PMA_HOST: mariadb
+      # Credenciales del usuario de aplicación (coinciden con MARIADB_USER/MARIADB_PASSWORD).
+      PMA_USER: ${MARIADB_USER:-videoteca}
+      PMA_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  # Servidor Eureka: registre de serveis per als microserveis del projecte
+  eureka:
+    build:
+      context: ./eureka
+    image: videoteca-eureka:latest
+    container_name: videoteca_eureka
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): no expone Eureka a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:8761:8761"
+    healthcheck:
+      # L'arrencada de Spring Boot + Eureka triga una mica d'hora (start_period ampli).
+      test: ["CMD-SHELL", "curl -sf http://localhost:8761/actuator/health | grep -q '\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # API Gateway: porta d'entrada de les peticions, amb descobriment de serveis (Eureka)
+  gateway:
+    build:
+      context: ./gateway
+    image: videoteca-gateway:latest
+    container_name: videoteca_gateway
+    restart: unless-stopped
+    ports:
+      # 8081 a l'host: el 8080 ja l'ocupa phpMyAdmin (127.0.0.1:8080:80).
+      - "127.0.0.1:8081:8080"
+    environment:
+      # Apunta al servidor Eureka dins de la xarxa de Docker (sobreescriu el valor per defecte del application.yml).
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      # Es registra amb el nom del servei perquè sigui resol pel DNS intern de Docker.
+      EUREKA_INSTANCE_HOSTNAME: gateway
+    depends_on:
+      eureka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q '\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  # Named volume persistente para los datos de MariaDB
+  mariadb_data:

@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 .ipynb_checkpoints/
+
+# Configuración local de agentes (puede contener secretos)
+opencode.json

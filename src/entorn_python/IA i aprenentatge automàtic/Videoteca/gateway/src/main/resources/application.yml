@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          # Ruta /<servei>/... redirigida automàticament al servei registrat a Eureka.
+          enabled: true
+          # Els noms de servei es busquen en minúscula (coincideix amb spring.application.name).
+          lower-case-service-id: true
+
+# URL per defecte del servidor Eureka.
+# Sobrescriu-la en l'entorn (docker-compose) amb EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+# (per exemple, http://eureka:8761/eureka dins de la xarxa de Docker).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
