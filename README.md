@@ -25,6 +25,24 @@ git push      # subir los cambios a GitHub
 
 > Si no haces `push` al terminar, en el otro ordenador no tendrás los cambios.
 
+### ¿Y si tengo cambios en casa y en clase a la vez?
+
+Git **no machaca cambios sin avisar**:
+
+1. Haces `git push` y git lo **rechaza** (`rejected`) porque en GitHub hay cosas que no tienes.
+2. Haces `git pull` y git junta las dos versiones:
+   - **Ficheros distintos, o partes distintas del mismo fichero:** se juntan solos.
+   - **Las mismas líneas cambiadas en los dos sitios:** git marca un **conflicto** y tú eliges qué te quedas (mira el punto 6).
+3. Haces `git push` y ya está todo junto.
+
+Si tienes cambios **sin commit** y haces `pull`, git se niega a sobrescribirlos. Haz primero `commit`.
+
+**Dónde sí puedes perder cosas:**
+
+- **Si no haces `push` en clase.** Los cambios se quedan solo en ese PC, y si lo borran, se pierden.
+- **Con los notebooks (`.ipynb`).** Si cambias el mismo notebook en los dos sitios, el conflicto es muy difícil de resolver. No edites el mismo notebook en los dos ordenadores sin sincronizar antes.
+- **Con estos comandos o botones, que sí borran:** `git push --force`, `git reset --hard` y **Discard Changes** en VS Code. No los uses si no estás seguro.
+
 ---
 
 ## 2. Primera vez en un ordenador nuevo
