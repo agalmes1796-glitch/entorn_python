@@ -6,12 +6,16 @@ spring:
     name: gateway
   cloud:
     gateway:
-      discovery:
-        locator:
-          # Ruta /<servei>/... redirigida automàticament al servei registrat a Eureka.
-          enabled: true
-          # Els noms de servei es busquen en minúscula (coincideix amb spring.application.name).
-          lower-case-service-id: true
+      # Namespace 5.x (spring.cloud.gateway.server.webflux.*): el anterior
+      # spring.cloud.gateway.discovery.locator.* ya no se usa en 5.0.x.
+      server:
+        webflux:
+          discovery:
+            locator:
+              # Ruta /<servei>/... redirigida automàticament al servei registrat a Eureka.
+              enabled: true
+              # Els noms de servei es busquen en minúscula (coincideix amb spring.application.name).
+              lower-case-service-id: true
 
 # URL per defecte del servidor Eureka.
 # Sobrescriu-la en l'entorn (docker-compose) amb EUREKA_CLIENT_SERVICEURL_DEFAULTZONE

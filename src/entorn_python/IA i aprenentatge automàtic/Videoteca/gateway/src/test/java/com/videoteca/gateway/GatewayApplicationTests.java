@@ -6,11 +6,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 /**
  * Càrrega del context del Gateway.
  *
- * <p>En l'entorn de test no hi ha cap servidor Eureka a {@code localhost:8761},
- * de manera que el registre/consulta del directori pot fallar i loguejar errors:
- * és acceptable; el que s'assegura amb aquest test és que el context s'obri.</p>
+ * <p>{@code eureka.client.enabled=false} desactiva el client de Eureka en el
+ * test: de manera determinista i ràpida, sense reintents en background contra
+ * {@code localhost:8761} (inexistent en l'entorn de test). El que s'assegura
+ * amb aquest test és que el context s'obri.</p>
  */
-@SpringBootTest
+@SpringBootTest(properties = "eureka.client.enabled=false")
 class GatewayApplicationTests {
 
     @Test

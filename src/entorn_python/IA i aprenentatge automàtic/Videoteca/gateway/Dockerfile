@@ -13,7 +13,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+# L'aplicació s'executa com a usuari no privilegiat (el healthcheck amb curl no necessita root).
+RUN useradd -m app
 WORKDIR /app
 COPY --from=build /build/target/app.jar app.jar
+RUN chown -R app /app
+USER app
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
