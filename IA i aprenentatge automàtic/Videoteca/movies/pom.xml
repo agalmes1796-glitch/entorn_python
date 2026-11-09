@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Parent común a todos los microservicios del proyecto Videoteca. -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.2</version>
+    <relativePath/> <!-- lookup parent from repository -->
+  </parent>
+
+  <groupId>com.videoteca</groupId>
+  <artifactId>movies</artifactId>
+  <version>1.0.0</version>
+  <name>movies</name>
+  <description>Microservicio de películas (CRUD REST) del proyecto Videoteca</description>
+
+  <properties>
+    <java.version>25</java.version>
+    <maven.compiler.release>25</maven.compiler.release>
+    <spring-cloud.version>2025.1.4</spring-cloud.version>
+  </properties>
+
+  <dependencies>
+    <!--
+        Web (Spring MVC + Tomcat). Decisión de proyecto: se mantiene
+        spring-boot-starter-web por coherencia con los demás microservicios
+        (eureka/gateway/kafka/frontend); la migración a
+        spring-boot-starter-webmvc es backlog transversal (ver README).
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- Spring Data JPA (Hibernate 7 en Boot 4) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+
+    <!-- Bean Validation (jakarta.validation) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- Actuator: expone /actuator/health y /actuator/info -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- Cliente Eureka: registra el servicio "movies" en el servidor Eureka
+         (el gateway lo resuelve vía discovery). -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+
+    <!--
+        Driver MariaDB (Connector/J >= 3.0, es decir mariadb-java-client >= 3.0):
+        SOLO acepta el esquema "jdbc:mariadb://". El prefijo legacy
+        "jdbc:mysql://" requiere añadir ?permitMysqlScheme a la URL.
+    -->
+    <dependency>
+      <groupId>org.mariadb.jdbc</groupId>
+      <artifactId>mariadb-java-client</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Pruebas: JUnit 5, Mockito, AssertJ, etc. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+        En Spring Boot 4 el autoconfigure de pruebas MVC se modularizó:
+        MockMvc (@AutoConfigureMockMvc) y Jackson de pruebas viven en
+        spring-boot-starter-webmvc-test (verificado en 4.1.2: la clase
+        AutoConfigureMockMvc vive en spring-boot-webmvc-test, paquete
+        org.springframework.boot.webmvc.test.autoconfigure). Sin este
+        starter los tests web no compilan.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+        H2 SOLO para tests (scope test, nunca en el runtime): permite cargar el
+        contexto de Spring y probar el CRUD completo sin necesidad de MariaDB
+        (modo compatibilidad MariaDB, esquema creado por Hibernate).
+    -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- BOM de Spring Cloud: fija la versión del cliente Eureka. -->
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <!-- Jar final: target/app.jar (se usa tal cual en el Dockerfile, "java -jar app.jar"). -->
+    <finalName>app</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

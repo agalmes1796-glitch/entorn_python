@@ -1,0 +1,36 @@
+server:
+  # Port per defecte per a desenvolupament local fora de Docker.
+  # Dins del contenedor, docker-compose ho sobreescriu amb SERVER_PORT=8080
+  # (l'8084 de l'host apunta al 8080 del contenedor; vegeu docker-compose.yaml).
+  port: 8084
+
+spring:
+  application:
+    name: notifications
+  datasource:
+    # Per defecte, MariaDB local de desenvolupament. Dins de Docker,
+    # docker-compose ho sobreescriu amb les variables d'entorn estàndard:
+    # SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME i SPRING_DATASOURCE_PASSWORD.
+    url: jdbc:mariadb://localhost:3306/videoteca
+    username: videoteca
+    password: videoteca_dev
+  jpa:
+    hibernate:
+      # Crea o actualitza l'esquema automàticament (només per a desenvolupament).
+      ddl-auto: update
+    # Desactiva "open session in view" per no mantenir l'entitat JPA oberta
+    # fora de la transacció.
+    open-in-view: false
+
+# URL per defecte del servidor Eureka (desenvolupament local).
+# Dins de Docker, docker-compose ho sobreescriu amb EUREKA_CLIENT_SERVICEURL_DEFAULTZONE.
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

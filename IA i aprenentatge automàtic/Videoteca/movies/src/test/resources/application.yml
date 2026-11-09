@@ -1,0 +1,37 @@
+# Configuración SOLO para tests (sobrescribe src/main/resources/application.yml).
+#
+# Usa H2 en memoria en modo compatibilidad MariaDB, para que:
+#   - el contexto de Spring arranque sin MariaDB real (mvn test en cualquier máquina),
+#   - Hibernate cree el esquema a partir de las entidades (create-drop) en vez de
+#     validar una tabla que no existe.
+spring:
+  datasource:
+    url: jdbc:h2:mem:videoteca;MODE=MariaDB;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    # El dialect H2 se autodetecta en Hibernate 7 (sin necesidad de fijarlo).
+  jackson:
+    # Mismo contrato que en producción (src/main/resources/application.yml):
+    # el test application.yml SUSTITUYE al principal (no lo mergea), así que
+    # la propiedad se repite aquí para que el contexto de test ejercite el
+    # mismo snake_case global del JSON (peticiones y respuestas) que el
+    # frontend exige vía gateway. Si se cambia el contrato, cambiar las dos.
+    property-naming-strategy: SNAKE_CASE
+
+# Sin Eureka en los tests: evita peticiones/pendencias de registro en el
+# contexto de test (la app no necesita Eureka para arrancar, pero el cliente
+# reintentaría el registro y añadiría ruido).
+eureka:
+  client:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: frontend
+
+# URL base de l'API Gateway (porta d'entrada de les peticions).
+# El microservici NO llegeix la BD directament: demana GET {gateway.base-url}/movies
+# i el gateway redirigeix (discovery locator) al servei "movies" registrat a Eureka.
+# El valor per defecte és el de la xarxa interna de Docker; es pot sobrescriure amb
+# la variable d'entorn GATEWAY_BASE_URL (per exemple http://localhost:8081 en
+# desenvolupament local, on el gateway s'accedeix pel port de l'host).
+gateway:
+  base-url: ${GATEWAY_BASE_URL:http://gateway:8080}
+
+# URL per defecte del servidor Eureka.
+# Sobrescriu-la en l'entorn (docker-compose) amb EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+# (per exemple, http://eureka:8761/eureka dins de la xarxa de Docker).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

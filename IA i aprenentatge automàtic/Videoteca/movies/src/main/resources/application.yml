@@ -1,0 +1,88 @@
+server:
+  # Puerto 8084: el 8083 lo reserva el microservicio "frontend" en el
+  # docker-compose.yaml (127.0.0.1:8083:8080).
+  # Sobrescribible vía MOVIES_SERVER_PORT (docker-compose lo usa para
+  # escuchar en 8080 dentro del contenedor, como el resto de servicios).
+  port: ${MOVIES_SERVER_PORT:8084}
+
+spring:
+  application:
+    # Id del servicio: se registra en Eureka como "movies" y el gateway lo
+    # resuelve por ese nombre (discovery locator).
+    name: movies
+  datasource:
+    # Valores por defecto del entorno de desarrollo (docker-compose de Videoteca).
+    # Sobrescribibles por variables de entorno MOVIES_DB_*.
+    #
+    # IMPORTANTE: el driver org.mariadb.jdbc.Driver (Connector/J >= 3.0) SOLO
+    # acepta el esquema "jdbc:mariadb://"; el prefijo legacy "jdbc:mysql://"
+    # requiere añadir ?permitMysqlScheme a la URL.
+    url: ${MOVIES_DB_URL:jdbc:mariadb://127.0.0.1:3306/videoteca}
+    username: ${MOVIES_DB_USER:videoteca}
+    password: ${MOVIES_DB_PASSWORD:videoteca_dev}
+    # Driver oficial MariaDB (el esquema debe ser jdbc:mariadb://, no jdbc:mysql://).
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    # La tabla `pelicula` YA existe (creada y poblada por el proyecto Videoteca):
+    # Hibernate SOLO valida que el esquema coincida, nunca lo crea ni lo modifica.
+    # Si la BD no está disponible o la tabla falta, el arranque fallará con un
+    # Hibernate SchemaValidationException: es el comportamiento esperado
+    # (fail-fast) en este microservicio.
+    hibernate:
+      ddl-auto: validate
+    # Buenas prácticas: sin la "open session in view", las consultas ocurren
+    # dentro del servicio, no dentro del controlador.
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+  jackson:
+    # =============================================================
+    # CONTRATO con el microservicio "frontend" (que NO se toca).
+    #
+    # 1) Rutas: el gateway (Spring Cloud Gateway 5.x, discovery locator,
+    #    lower-case-service-id: true) enruta /<servei>/** → lb://<servei>/**
+    #    con StripPrefix=1, así que GET {gateway}/movies llega a este
+    #    servicio como GET / (ruta raiz). Por eso MovieController expone
+    #    todos los endpoints bajo DOS bases: "" y "/api/movies".
+    #
+    # 2) JSON: el DTO de deserialización del frontend (record Pelicula)
+    #    declara @JsonProperty con los nombres de columna de la tabla
+    #    `pelicula`, i.e. snake_case: anio_estreno, duracion_minutos,
+    #    genero_id, director_id. Por tanto el JSON de este microservicio
+    #    va en snake_case GLOBAL, peticiones Y respuestas.
+    #
+    # 3) En Boot 4.1.2 + Jackson 3 (tools.jackson) esta propiedad se aplica
+    #    al autoconfigure sin customizer extra: JacksonAutoConfiguration
+    #    (spring-boot-jackson 4.1.2) → AbstractMapperBuilderCustomizer
+    #    #configurePropertyNamingStrategy → PropertyNamingStrategies
+    #    .SNAKE_CASE sobre el bean JsonMapper, que a su vez alimenta el
+    #    JacksonJsonHttpMessageConverter de MVC (verificado en binarios).
+    #
+    # 4) La naming strategy renombra SOLO los campos de los DTO
+    #    (records/POJOs), NUNCA las claves de los Map: por eso las claves
+    #    del mapa fieldErrors de ApiError siguen siendo nombres de
+    #    propiedad Java (camelCase), p. ej.
+    #    {"field_errors": {"generoId": "El género (generoId) es obligatorio"}}.
+    #    El campo fieldErrors del propio ApiError SÍ sale como field_errors.
+    # =============================================================
+    property-naming-strategy: SNAKE_CASE
+
+# URL por defecto del servidor Eureka (mismo patrón que kafka/frontend).
+# Sobrescribible en runtime con EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+# (p. ej. http://eureka:8761/eureka en docker-compose).
+# Si Eureka no está disponible la app arranca igualmente: solo se registran
+# warnings de fallo de registro (reintentos periódicos). Para desactivar el
+# cliente por completo (p. ej. en tests): EUREKA_CLIENT_ENABLED=false
+# (eureka.client.enabled: false).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+# Actuator: solo health e info (mínimo superficie de exposición).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

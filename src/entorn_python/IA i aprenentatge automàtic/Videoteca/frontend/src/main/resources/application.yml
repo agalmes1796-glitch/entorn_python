@@ -1,0 +1,27 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: frontend
+
+# URL per defecte del gateway (el container 'gateway' de la xarxa interna de Docker).
+# Sobrescriu-la amb la variable d'entorn GATEWAY_BASE_URL (p. ex.
+# http://localhost:8081 per desenvolupar l'aplicació fora de Docker).
+# Propietat custom del projecte: es llegeix amb @Value("${gateway.base-url}").
+gateway:
+  base-url: ${GATEWAY_BASE_URL:http://gateway:8080}
+
+# URL per defecte del servidor Eureka.
+# Sobrescriu-la en l'entorn (docker-compose) amb EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+# (per exemple, http://eureka:8761/eureka dins de la xarxa de Docker).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

@@ -1,0 +1,25 @@
+# Configuració de proves: H2 en memòria (MODE=MYSQL per aproximar el dialecte
+# de MariaDB) i descobriment de serveis desactivat, perquè les proves no
+# depenguin d'una base de dades MariaDB ni d'un servidor Eureka reals.
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:notifications;MODE=MYSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      # Crea l'esquema des de zero per a cada sessió de proves i l'elimina al final.
+      ddl-auto: create-drop
+    open-in-view: false
+  cloud:
+    discovery:
+      # Desactiva el client de descobriment de serveis (Eureka) a les proves.
+      enabled: false
+
+eureka:
+  client:
+    # Sense registre ni baixada de directori Eureka a l'entorn de proves
+    # (mateix patró que les proves del gateway).
+    enabled: false

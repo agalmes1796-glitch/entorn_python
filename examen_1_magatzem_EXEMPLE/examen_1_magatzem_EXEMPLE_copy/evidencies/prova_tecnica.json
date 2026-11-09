@@ -1,0 +1,27 @@
+{
+  "origen": "prova_tecnica_python_sense_delegacio",
+  "informe": {
+    "reposicions": [
+      {
+        "id": "P1",
+        "quantitat": 8
+      },
+      {
+        "id": "P4",
+        "quantitat": 4
+      }
+    ],
+    "unitats_totals": 12,
+    "descartats": [
+      "P3"
+    ]
+  },
+  "validacio": {
+    "valid": true,
+    "errors": []
+  },
+  "persistencia": {
+    "ok": true,
+    "locacio": "/home/alumne/Escriptori/examen_1_magatzem_EXEMPLE/examen_1_magatzem_EXEMPLE_copy/artefactes/informe.json"
+  }
+}

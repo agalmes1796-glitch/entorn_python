@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: actors
+  datasource:
+    # Les variables DB_* tenen valors per defecte per treballar localment
+    # sense Docker; docker-compose les sobrescriu (DB_HOST=mariadb, etc.).
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:videoteca}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    # El connector MariaDB admet l'esquema jdbc:mysql:// (compatibilitat amb
+    # Connector/J), però el declarem explícitament perquè Spring Boot no el
+    # dedueix d'aquesta URL (deduiria el driver de MySQL, absent de la classpath).
+    driver-class-name: org.mariadb.jdbc.Driver
+    username: ${DB_USER:videoteca}
+    password: ${DB_PASSWORD:videoteca_dev}
+  jpa:
+    hibernate:
+      # Actualitza l'esquema segons les entitats (projecte en desenvolupament).
+      ddl-auto: update
+    # No obri la sessió JPA durant el processament HTTP (bona pràctica).
+    open-in-view: false
+
+# URL per defecte del servidor Eureka.
+# Sobrescriu-la en l'entorn (docker-compose) amb EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+# (per exemple, http://eureka:8761/eureka dins de la xarxa de Docker).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

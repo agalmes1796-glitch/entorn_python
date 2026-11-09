@@ -183,6 +183,79 @@ services:
       retries: 10
       start_period: 60s
 
+  # Microservici de notificacions: API REST CRUD persistida a MariaDB (taula 'notifications')
+  notifications:
+    build:
+      context: ./notifications
+    # Tag "latest" a falta de versionar el servei; s'alinea amb el frontend.
+    image: videoteca-notifications:latest
+    container_name: videoteca_notifications
+    restart: unless-stopped
+    ports:
+      # 8084 a l'host. Numeració de ports de l'host: 8080 phpMyAdmin, 8081 gateway,
+      # 8082 kafka, 8083 frontend, 8084 notifications.
+      - "127.0.0.1:8084:8080"
+    environment:
+      # Dins del contenedor l'aplicació escolta al 8080 (com el gateway i el kafka);
+      # l'8084 de l'application.yml és el defecte per a desenvolupament local fora de Docker.
+      SERVER_PORT: "8080"
+      # Apunta a la base de dades MariaDB dins de la xarxa de Docker (sobreescriu el defecte de l'application.yml).
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/videoteca
+      # Credencials de l'usuari d'aplicació (coincideixen amb MARIADB_USER/MARIADB_PASSWORD).
+      SPRING_DATASOURCE_USERNAME: ${MARIADB_USER:-videoteca}
+      SPRING_DATASOURCE_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+      # Apunta al servidor Eureka dins de la xarxa de Docker (sobreescriu el defecte de l'application.yml).
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      # Es registra amb el nom del servei perquè sigui resolt pel DNS intern de Docker.
+      EUREKA_INSTANCE_HOSTNAME: notifications
+    depends_on:
+      eureka:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # Microservici d'actors: API REST CRUD d'actors persistida a MariaDB (BD videoteca, taula 'actor')
+  actors:
+    build:
+      context: ./actors
+    image: videoteca-actors:latest
+    container_name: videoteca_actors
+    restart: unless-stopped
+    ports:
+      # 8085 a l'host. Numeració de ports de l'host: 8080 phpMyAdmin, 8081 gateway,
+      # 8082 kafka, 8083 frontend, 8084 notifications, 8085 actors.
+      - "127.0.0.1:8085:8080"
+    environment:
+      # Apunta a la base de dades MariaDB dins de la xarxa de Docker (sobreescriu el defecte de l'application.yml).
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: videoteca
+      # Credencials de l'usuari d'aplicació (coincideixen amb MARIADB_USER/MARIADB_PASSWORD).
+      DB_USER: ${MARIADB_USER:-videoteca}
+      DB_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+      # Apunta al servidor Eureka dins de la xarxa de Docker (sobreescriu el defecte de l'application.yml).
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      # Es registra amb el nom del servei perquè sigui resolt pel DNS intern de Docker.
+      EUREKA_INSTANCE_HOSTNAME: actors
+    depends_on:
+      eureka:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      # L'arrancada de Spring Boot + JPA (HikariCP esperant la BD) triga una mica més que al gateway.
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
 volumes:
   # Named volume persistente para los datos de MariaDB
   mariadb_data:

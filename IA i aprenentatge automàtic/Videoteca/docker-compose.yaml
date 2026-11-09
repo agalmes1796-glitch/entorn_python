@@ -1,0 +1,224 @@
+services:
+  # Base de datos MariaDB del proyecto videoteca
+  mariadb:
+    image: mariadb:11.8
+    container_name: videoteca_mariadb
+    restart: unless-stopped
+    environment:
+      # Valores por defecto solo para desarrollo; externalizar en producción.
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-videoteca_root_dev}
+      MARIADB_DATABASE: videoteca
+      MARIADB_USER: ${MARIADB_USER:-videoteca}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+    ports:
+      # Solo local (127.0.0.1): no expone la BD a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:3306:3306"
+    volumes:
+      # Named volume gestionado por Docker (declarado en la sección global `volumes:`).
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # phpMyAdmin: gestor web de la base de datos
+  phpmyadmin:
+    # Tag estable fijado (evita "latest"); 5.2 es la última línea estable en Docker Hub (2026-10).
+    image: phpmyadmin/phpmyadmin:5.2
+    container_name: videoteca_phpmyadmin
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): no expone phpMyAdmin a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:8080:80"
+    environment:
+      PMA_HOST: mariadb
+      # Credenciales del usuario de aplicación (coinciden con MARIADB_USER/MARIADB_PASSWORD).
+      PMA_USER: ${MARIADB_USER:-videoteca}
+      PMA_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  # Servidor Eureka: registro de servicios para los microservicios del proyecto
+  eureka:
+    build:
+      context: ./eureka
+    # Tag estable fijado (evita "latest"); coincide con la versión 1.0.0 del proyecto (pom.xml).
+    image: videoteca-eureka:1.0.0
+    container_name: videoteca_eureka
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): no expone Eureka a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:8761:8761"
+    healthcheck:
+      # El arranque de Spring Boot + Eureka tarda un rato (start_period amplio).
+      test: ["CMD-SHELL", "curl -sf http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # API Gateway: puerta de entrada de las peticiones, con descubrimiento de servicios (Eureka)
+  gateway:
+    build:
+      context: ./gateway
+    # Tag estable fijado (evita "latest"); coincide con la versión 1.0.0 del proyecto (pom.xml).
+    image: videoteca-gateway:1.0.0
+    container_name: videoteca_gateway
+    restart: unless-stopped
+    ports:
+      # 8081 en el host: el 8080 ya lo ocupa phpMyAdmin (127.0.0.1:8080:80).
+      - "127.0.0.1:8081:8080"
+    environment:
+      # Apunta al servidor Eureka dentro de la red de Docker (sobrescribe el valor por defecto del application.yml).
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      # Se registra con el nombre del servicio para que sea resuelto por el DNS interno de Docker.
+      EUREKA_INSTANCE_HOSTNAME: gateway
+    depends_on:
+      eureka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # Broker Kafka (KRaft, node únic sense Zookeeper): transport de missatges de la demo
+  kafka-broker:
+    # Tag estable fixat (evita "latest"): 4.4.0 és l'última línia estable d'apache/kafka a Docker Hub (2026-11).
+    image: apache/kafka:4.4.0
+    container_name: videoteca_kafka_broker
+    restart: unless-stopped
+    environment:
+      # Mode KRaft en un sol node, sense Zookeeper.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      # Nom d'host dins de la xarxa de Docker (el microservici s'hi connecta amb kafka-broker:9092).
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-broker:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      # Crea el topic automàticament en rebre el primer missatge (la demo no el crea prèviament).
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Node únic: els topics interns (__consumer_offsets, etc.) han de crear-se amb
+      # factor de replicació 1; per defecte el broker n'intenta un de 3 i falla.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      # Només local (127.0.0.1): no exposeix el broker a la LAN. Per a accés remot, quitar el prefix 127.0.0.1.
+      - "127.0.0.1:9092:9092"
+    volumes:
+      # Named volume gestionat per Docker (declarada a la secció global `volumes:`).
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      # kafka-topics.sh només respon si el broker està servint peticions.
+      # Ruta absoluta: en apache/kafka:4.4.0 el directori /opt/kafka/bin no és al PATH de la imatge.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Microservici Kafka: productor/consumidor de missatges (demo)
+  kafka:
+    build:
+      context: ./kafka
+    # Tag estable fijado (evita "latest"); coincide con la versión 1.0.0 del proyecto (pom.xml).
+    image: videoteca-kafka:1.0.0
+    container_name: videoteca_kafka
+    restart: unless-stopped
+    ports:
+      # 8082 a l'host: el 8081 ja l'ocupa el gateway i el 8080 phpMyAdmin (127.0.0.1:8080:80).
+      - "127.0.0.1:8082:8080"
+    environment:
+      # Apunta al servidor Eureka dins de la xarxa de Docker (sobreescriu el valor per defecte del application.yml).
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      # Es registra amb el nom del servei perquè sigui resolt pel DNS intern de Docker.
+      EUREKA_INSTANCE_HOSTNAME: kafka
+      # Broker Kafka dins de la xarxa de Docker (sobreescriu el valor per defecte del application.yml).
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-broker:9092
+    depends_on:
+      eureka:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # Microservici de front: exposa GET /movies delegant la consulta al servei "movies" a través del gateway
+  frontend:
+    build:
+      context: ./frontend
+    image: videoteca-frontend:latest
+    container_name: videoteca_frontend
+    restart: unless-stopped
+    ports:
+      # 8083 a l'host: el 8080 ja l'ocupa phpMyAdmin, el 8081 el gateway i el 8082 el microservici kafka.
+      - "127.0.0.1:8083:8080"
+    environment:
+      # Apunta al servidor Eureka dins de la xarxa de Docker (sobreescriu el valor per defecte del application.yml).
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      # Es registra amb el nom del servei perquè sigui resolt pel DNS intern de Docker.
+      EUREKA_INSTANCE_HOSTNAME: frontend
+      # URL del gateway dins de la xarxa de Docker (sobreescriu el valor per defecte del application.yml).
+      GATEWAY_BASE_URL: http://gateway:8080
+    depends_on:
+      eureka:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q '\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # Microservici Movies: CRUD REST de pel·lícules (servei "movies" a Eureka per al gateway)
+  movies:
+    build:
+      context: ./movies
+    image: videoteca-movies:1.0.0
+    container_name: videoteca_movies
+    restart: unless-stopped
+    ports:
+      # 8084 a l'host: el 8083 ja l'ocupa el frontend.
+      - "127.0.0.1:8084:8080"
+    environment:
+      # Port intern del container: 8080, com el resto de microservicis (el port
+      # per defecte de l'aplicació, 8084, és el de desenvolupament local fora de Docker).
+      MOVIES_SERVER_PORT: 8080
+      # Apunta al servidor Eureka dins de la xarxa de Docker (sobreescriu el valor per defecte del application.yml).
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka
+      # Es registra amb el nom del servei perquè sigui resolt pel DNS intern de Docker.
+      EUREKA_INSTANCE_HOSTNAME: movies
+      # BD dins de la xarxa de Docker (sobreescriu el valor per defecte del application.yml).
+      MOVIES_DB_URL: jdbc:mariadb://mariadb:3306/videoteca
+      MOVIES_DB_USER: ${MARIADB_USER:-videoteca}
+      MOVIES_DB_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+    depends_on:
+      eureka:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q '\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  # Named volume persistente para los datos de MariaDB
+  mariadb_data:
+  # Named volume persistente per a les dades del broker Kafka (KRaft)
+  kafka_data:
