@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: kafka
+  kafka:
+    # Broker per defecte (desenvolupament local); docker-compose n'envia un altre
+    # (kafka-broker:9092) mitjançant l'entorn SPRING_KAFKA_BOOTSTRAP_SERVERS.
+    bootstrap-servers: localhost:9092
+    consumer:
+      # Grup de consum del listener; sense group.id l'arrancada del consumidor falla.
+      group-id: videoteca-group
+      # El topic el crea el primer missatge (auto-create del broker); amb 'earliest'
+      # el grup nou consumeix des del principi i no es perd mai el primer missatge.
+      auto-offset-reset: earliest
+
+# URL per defecte del servidor Eureka.
+# Sobrescriu-la en l'entorn (docker-compose) amb EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+# (per exemple, http://eureka:8761/eureka dins de la xarxa de Docker).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
