@@ -1,6 +1,18 @@
-.venv/
+# Python-generated files
 __pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
 .ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+
+# Java/Maven
+target/
+*.class
 
 # Configuración local de agentes (puede contener secretos)
 opencode.json
