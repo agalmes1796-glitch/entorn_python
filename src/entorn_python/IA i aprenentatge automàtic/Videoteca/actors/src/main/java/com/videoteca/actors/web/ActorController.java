@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -64,11 +64,11 @@ public class ActorController {
      */
     @GetMapping
     public ResponseEntity<Object> llistar(
-            @RequestParam(required = false) String text,
+            @RequestParam(value = "texto", required = false) String texto,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
-        if (text != null && !text.isBlank()) {
-            List<ActorResponse> resultats = service.buscarPerText(text);
+        if (texto != null && !texto.isBlank()) {
+            List<ActorResponse> resultats = service.buscarPerText(texto);
             return ResponseEntity.ok(resultats);
         }
         if (page != null || size != null) {
