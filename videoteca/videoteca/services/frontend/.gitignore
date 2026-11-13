@@ -1,0 +1,19 @@
+# Nuxt
+.nuxt
+.output
+.data
+dist
+node_modules
+
+# Logs
+*.log*
+
+# Entorn (no versionem valors reals; sí .env.example)
+.env
+.env.*
+!.env.example
+
+# IDE / sistema
+.idea
+.vscode
+.DS_Store

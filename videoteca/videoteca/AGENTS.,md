@@ -1,0 +1,32 @@
+# GOBERNANZA
+
+No actualices NUNCA el archivo AGENTS.md. Este archivo sera modificado por un humano.
+
+# MICROSERVICIOS
+
+## Nombre de los microservicios
+
+El nombre de los microservicios tiene que ir siempre con un nombre sin ningún sufijo al final ni ningún prefijo al principio. Por ejemplo: service.actors o actors-service NO están bien, el nombre correo es actors. Los nombres actuales son: eureka, gateway, kafka, actors, movies, notifications.
+
+## Ubicación de los microservicios
+
+Los microservicios tienen que estar dentro de la carpeta videoteca/services.
+Los microservicios que estan fuera de la carpeta services tienen que ser movidos dentro de videoteca/services.
+
+# PROYECTOS JAVA
+
+## ESTRUCTURA DE PACKAGES
+
+La estructura de pacages de los proyectos en Java tiene que ser la siguiente:
+
+Nombre del package: cat.politecnicllevant.videoteca
+
+Estructura de carpeta dentro del package; cat.politecnicllevant.videoteca
+
+controller: Controladores del proyecto donde irán todos los endpoinds. Nomenclatura: XXXController.java.
+domain: Dominio del proyecto. Nomenclatura: XXX.
+service: Servicios del proyecto. Nomenclatura: XXXServices.java.
+util: Classes de utilidades varias y transversales del proyecto.
+dto: DTOs del prouecto. Nomenclatura: XXXDto.java.
+repository: repositorios del proyecto. Nomenclatura: XXXRepository.java.
+entity: Entidades de persistencia en la BBSS del proyecto. Nomenclatura: XXXEntity.java. 

@@ -6,17 +6,20 @@ import com.videoteca.notifications.exception.NotificationNotFoundException;
 import com.videoteca.notifications.model.Notification;
 import com.videoteca.notifications.repository.NotificationRepository;
 import com.videoteca.notifications.service.NotificationService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
  * Implementació del servei de notificacions sobre el repositori JPA.
  *
- * <p>Tot el mètode s'executa dins d'una transacció; les lectures podrien
- * ser transaccions de només lectura.</p>
+ * <p>Tot el mètode s'executa dins d'una transacció: les lectures
+ * ({@link #getById}, {@link #getAll}) com a transacció de només lectura
+ * ({@code @Transactional(readOnly = true)}), i les escriptures ({@code create},
+ * {@code update}, {@code delete}, {@code markAsRead}) com a transacció normal.</p>
  */
 @Service
 @Transactional
@@ -36,17 +39,18 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public NotificationResponse getById(UUID id) {
         return NotificationResponse.from(findByIdOrThrow(id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<NotificationResponse> getAll(Boolean read) {
-        List<Notification> notifications = (read == null)
-                ? repository.findAll()
-                : repository.findByRead(read);
-        return notifications.stream().map(NotificationResponse::from).toList();
+    public Page<NotificationResponse> getAll(Boolean read, Pageable pageable) {
+        Page<Notification> notifications = (read == null)
+                ? repository.findAll(pageable)
+                : repository.findByRead(read, pageable);
+        return notifications.map(NotificationResponse::from);
     }
 
     @Override

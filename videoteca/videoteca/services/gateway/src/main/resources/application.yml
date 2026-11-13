@@ -1,0 +1,62 @@
+# ==============================================================================
+# gateway — API gateway reactivo (Spring Cloud Gateway / WebFlux)
+# Puerto interno 8080; en el host se expone como 127.0.0.1:8090 (docker-compose.yaml).
+# Se registra en Eureka (contenedor `eureka`) para poder usar rutas lb://.
+# ==============================================================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+
+  # Rutas activas del gateway. `lb://<servicio>` resuelve la instancia concreta
+  # consultando el registro de Eureka.
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # Microservicio de mensajería Kafka (services/kafka)
+            - id: kafka
+              uri: lb://kafka
+              predicates:
+                - Path=/api/messages/**
+
+  # ----------------------------------------------------------------------------
+  # EJEMPLO DE RUTA (comentado) para el futuro microservicio `videoteca`:
+  #
+  # Cuando el microservicio `videoteca` exista y esté registrado en Eureka,
+  # descomentar el bloque siguiente. `lb://videoteca` significa "load
+  # balanced": el gateway resolverá la instancia concreta consultando Eureka.
+  #
+  # Nota: en el Spring Cloud train 2025.1 (Oakwood) el gateway reactivo usa el
+  # prefijo de propiedades `spring.cloud.gateway.server.webflux.*` (verificado
+  # en el metadata de configuración de spring-cloud-gateway 5.0.x).
+  #
+  # cloud:
+  #   gateway:
+  #     server:
+  #       webflux:
+  #         routes:
+  #           - id: videoteca
+  #             uri: lb://videoteca
+  #             predicates:
+  #               - Path=/api/videos/**
+  # ----------------------------------------------------------------------------
+
+eureka:
+  client:
+    # Zona de registro: hostname `eureka` de la red interna de Docker.
+    # Es un Map<String,String>: tanto la forma kebab-case (service-url/default-zone)
+    # como la camelCase (serviceUrl/defaultZone) se enlazan (relaxed binding); aquí usamos la camelCase.
+    serviceUrl:
+      defaultZone: http://eureka:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Solo se exponen los endpoints de salud e información.
+        include: health,info

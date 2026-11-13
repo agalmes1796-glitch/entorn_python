@@ -16,8 +16,8 @@ RUN apt-get update \
 # L'aplicació s'executa com a usuari no privilegiat (el healthcheck amb curl no necessita root).
 RUN useradd -m app
 WORKDIR /app
-COPY --from=build /build/target/app.jar app.jar
-RUN chown -R app /app
+# El jar ja entra amb l'usuari 'app' (creat a dalt) a la capa correcta: una capa menys.
+COPY --chown=app:app --from=build /build/target/app.jar app.jar
 USER app
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

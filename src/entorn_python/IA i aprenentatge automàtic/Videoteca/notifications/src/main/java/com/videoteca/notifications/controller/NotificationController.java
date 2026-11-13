@@ -4,6 +4,10 @@ import com.videoteca.notifications.dto.NotificationRequest;
 import com.videoteca.notifications.dto.NotificationResponse;
 import com.videoteca.notifications.service.NotificationService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,7 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -28,7 +31,9 @@ import java.util.UUID;
  *
  * <p>Endpoints:</p>
  * <ul>
- *   <li>{@code GET    /api/notifications[?read=...]} — llista (filtre opcional per estat de lectura)</li>
+ *   <li>{@code GET    /api/notifications[?read=...&page=...&size=...]} — llista paginada
+ *       (per defecte: pàgina 0, 20 per pàgina, màxim 100, ordre descendent per data de
+ *       creació; filtre opcional per estat de lectura)</li>
  *   <li>{@code GET    /api/notifications/{id}} — consulta per id</li>
  *   <li>{@code POST   /api/notifications} — crea (201 + capçalera {@code Location})</li>
  *   <li>{@code PUT    /api/notifications/{id}} — actualitza</li>
@@ -40,16 +45,33 @@ import java.util.UUID;
 @RequestMapping("/api/notifications")
 public class NotificationController {
 
+    /** Límit de mida de pàgina: mai més de 100 elements per resposta. */
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final NotificationService service;
 
     public NotificationController(NotificationService service) {
         this.service = service;
     }
 
-    /** Llista totes les notificacions, o les filtra per l'estat de lectura indicat. */
+    /**
+     * Llista les notificacions paginades, o les filtra per l'estat de lectura indicat.
+     *
+     * <p>Per defecte: pàgina 0, 20 elements per pàgina i ordre descendent per
+     * data de creació. La mida s'acota a {@value #MAX_PAGE_SIZE} elements en el
+     * servidor (també reflectida a {@code spring.data.web.pageable.max-page-size}).</p>
+     */
     @GetMapping
-    public List<NotificationResponse> getAll(@RequestParam(required = false) Boolean read) {
-        return service.getAll(read);
+    public Page<NotificationResponse> getAll(
+            @RequestParam(required = false) Boolean read,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        // S'acoten els paràmetres per evitar índexs de pàgina negatius o mides
+        // invàlides (PageRequest exigeix pàgina >= 0 i mida > 0).
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by("createdAt").descending());
+        return service.getAll(read, pageable);
     }
 
     /** Retorna la notificació indicada per l'id (404 si no existeix). */

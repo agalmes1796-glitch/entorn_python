@@ -1,0 +1,47 @@
+# ==============================================================================
+# kafka — microservicio de mensajería (Spring Boot 4 + Apache Kafka)
+# Puerto 8081; en el host se expone como 127.0.0.1:8082 (ver docker-compose.yaml).
+# Se registra en Eureka (contenedor `eureka`) para poder usar rutas lb://.
+# ==============================================================================
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: kafka
+
+kafka:
+  # Servidores del broker. En Docker Compose se sobreescribe con
+  # KAFKA_BOOTSTRAP_SERVERS=kafka:19092 (listener INTERNAL; ver docker-compose.yaml).
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  topic:
+    # Topic de eventos al que publica el producer y que consume el listener.
+    events: videoteca-events
+  consumer:
+    group-id: videoteca-kafka-group
+  producer:
+    acks: all
+    retries: 3
+
+eureka:
+  client:
+    service-url:
+      # Zona de registro: hostname `eureka` de la red interna de Docker.
+      # IMPORTANTE: la clave del map debe ser camelCase 'defaultZone' (el cliente
+      # de Eureka la busca literalmente; 'default-zone' no encaja y cae a localhost).
+      # Para ejecutar el servicio fuera de Docker, sobreescribir con:
+      #   EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka:8761/eureka/}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Solo se exponen los endpoints de salud e información.
+        include: health,info
+
+logging:
+  level:
+    com.videoteca.kafka: INFO
+    org.springframework.kafka: INFO

@@ -187,8 +187,8 @@ services:
   notifications:
     build:
       context: ./notifications
-    # Tag "latest" a falta de versionar el servei; s'alinea amb el frontend.
-    image: videoteca-notifications:latest
+    # Tag estable fixat (evita "latest"); coincideix amb la versió 1.0.0 del projecte (pom.xml).
+    image: videoteca-notifications:1.0.0
     container_name: videoteca_notifications
     restart: unless-stopped
     ports:

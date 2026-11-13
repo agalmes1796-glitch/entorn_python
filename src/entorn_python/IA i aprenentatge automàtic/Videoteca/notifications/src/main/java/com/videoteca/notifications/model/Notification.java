@@ -27,7 +27,7 @@ import java.util.UUID;
 @Table(name = "notifications")
 public class Notification {
 
-    /** Id únic generat pel proveïdor persistència (estratègia UUID de JPA 3.1+). */
+    /** Id únic generat pel proveïdor persistència (estratègia UUID de Jakarta Persistence 3.2+). */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -38,7 +38,8 @@ public class Notification {
     private String title;
 
     @NotBlank
-    @Column(nullable = false)
+    @Size(max = 255)
+    @Column(nullable = false, length = 255)
     private String message;
 
     @Enumerated(EnumType.STRING)

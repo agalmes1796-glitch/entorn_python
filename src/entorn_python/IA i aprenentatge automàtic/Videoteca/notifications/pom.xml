@@ -72,6 +72,13 @@
       <artifactId>spring-boot-starter-webmvc-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- En Spring Boot 4, el slice de proves JPA (@DataJpaTest) tampoc no ve amb el
+         starter-test: cal el mòdul data-jpa-test (porta l'anotació @DataJpaTest). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-data-jpa-test</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <dependencyManagement>

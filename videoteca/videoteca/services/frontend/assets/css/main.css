@@ -1,0 +1,43 @@
+/* Estils globals de la Videoteca */
+
+:root {
+  --color-bg: #0f1115;
+  --color-surface: #1a1e26;
+  --color-border: #2a3040;
+  --color-text: #e8ebf0;
+  --color-text-muted: #9aa3b2;
+  --color-accent: #4f8cff;
+  --color-danger: #ff5c5c;
+  --radius: 12px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-accent);
+}

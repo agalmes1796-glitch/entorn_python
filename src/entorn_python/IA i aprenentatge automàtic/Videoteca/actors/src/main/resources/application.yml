@@ -1,5 +1,8 @@
 server:
-  port: 8080
+  # Port per defecte fora de Docker: 8085, perquè el 8080 ja l'ocupa phpMyAdmin
+  # quan el projecte s'aixeca amb docker-compose. Dins del contenedor porta el
+  # valor 8080 (SERVER_PORT=8080 a docker-compose; coherent amb el EXPOSE 8080).
+  port: 8085
 
 spring:
   application:
@@ -7,7 +10,12 @@ spring:
   datasource:
     # Les variables DB_* tenen valors per defecte per treballar localment
     # sense Docker; docker-compose les sobrescriu (DB_HOST=mariadb, etc.).
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:videoteca}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    # Esquema jdbc:mariadb:// obligatori: el mariadb-java-client 3.5.x només
+    # accepta l'esquema jdbc:mysql:// si l'URL porta el paràmetre
+    # permitMysqlScheme (sense això, el driver rebutja la URL i el context
+    # no s'obri). Els paràmetres useSSL/allowPublicKeyRetrieval/serverTimezone
+    # són compatibles (el connector els interpreta com a aliases de Connector/J).
+    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:videoteca}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     # El connector MariaDB admet l'esquema jdbc:mysql:// (compatibilitat amb
     # Connector/J), però el declarem explícitament perquè Spring Boot no el
     # dedueix d'aquesta URL (deduiria el driver de MySQL, absent de la classpath).

@@ -1,0 +1,29 @@
+# ==============================================================================
+# eureka — servidor de registro de servicios (Spring Cloud Netflix Eureka)
+# Puerto 8761; en el host se expone como 127.0.0.1:8761 (ver docker-compose.yaml).
+# ==============================================================================
+
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka
+
+eureka:
+  client:
+    # El servidor de Eureka no se registra a sí mismo como instancia.
+    register-with-eureka: false
+    # No necesita consultar el registro de otros servidores (no hay peers).
+    fetch-registry: false
+  instance:
+    # Solo afecta a la información que el propio servidor publica (panel web).
+    hostname: localhost
+    prefer-ip-address: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Solo se exponen los endpoints de salud e información.
+        include: health,info

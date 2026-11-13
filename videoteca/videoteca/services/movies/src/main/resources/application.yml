@@ -1,0 +1,65 @@
+# ==============================================================================
+# Movies — configuración por defecto (sin perfil activo)
+#
+# Apunta a la base de datos MariaDB del docker-compose del proyecto videoteca.
+# Usuario/contraseña (y host/puerto/BDD) son parametrizables vía variables de
+# entorno DB_USER / DB_PASSWORD / DB_HOST / DB_PORT / DB_NAME, con defaults
+# coincidentes con MARIADB_USER / MARIADB_PASSWORD del compose.
+#
+# Nota: el perfil "h2" SOLO sirve para los tests (H2 está en scope=test del pom);
+# en la aplicación empaquetada el driver org.h2.Driver no está disponible.
+#
+# Nota de puertos: el microservice corre en 8082. El 8081 ya lo usan
+# notifications, kafka y actors; 8080 es el gateway y 8761 Eureka.
+# ==============================================================================
+spring:
+  application:
+    name: movies
+
+  datasource:
+    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:videoteca}
+    username: ${DB_USER:videoteca}
+    password: ${DB_PASSWORD:videoteca_dev}
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      # 'update' para que el esquema se adapte automáticamente a la BD existente
+      ddl-auto: update
+    # Evita abrir una sesión JPA durante el procesamiento web (buenas prácticas)
+    open-in-view: false
+
+server:
+  port: 8082
+
+# Actuator: se expone explícitamente el endpoint de salud
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+---
+# ==============================================================================
+# Perfil "h2": base de datos en memoria para los TESTS (H2 en scope=test).
+# H2 en modo compatibilidad MariaDB. No sirve para arrancar la aplicación
+# empaquetada: el driver no está en el classpath de runtime.
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: h2
+
+  datasource:
+    # URL de referencia: las clases de test la sustituyen por su propia BD en
+    # memoria (ver @DynamicPropertySource) para no compartir esquema entre contextos
+    url: jdbc:h2:mem:movies;MODE=MariaDB;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: ${DB_USER:videoteca}
+    password: ${DB_PASSWORD:videoteca_dev}
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      # El esquema se crea al arrancar y se destruye al terminar (BD en memoria)
+      ddl-auto: create-drop
+    open-in-view: false

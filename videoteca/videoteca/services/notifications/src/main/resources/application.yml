@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: notifications
+  mail:
+    # Canal de envío por email (SMTP).
+    # host y port tienen valores por defecto; todo es sobreescribible mediante
+    # variables de entorno: SPRING_MAIL_HOST, SPRING_MAIL_PORT,
+    # SPRING_MAIL_USERNAME y SPRING_MAIL_PASSWORD (relaxed binding de Spring).
+    # username y password NO se fijan por defecto: no hay secretos hardcoded.
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:25}
+
+server:
+  # 8080 lo ocupa phpMyAdmin en el docker-compose del workspace
+  port: 8081
+
+notifications:
+  store:
+    # Tope de entradas retenidas en los stores en memoria (inbound y outbound).
+    # Al llegar al tope, el save de una entrada nueva evicta la más antigua
+    # (por createdAt/receivedAt) y lo loguea. Sobreescribible con la variable
+    # de entorno NOTIFICATIONS_STORE_MAX_SIZE.
+    max-size: 10000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    mail:
+      # El health de mail en Spring Boot 4 hace un testConnection() real al
+      # servidor SMTP. Lo desactivamos para que /actuator/health siga devolviendo
+      # UP sin servidor SMTP disponible (el envío degrada a status=FAILED por envío).
+      enabled: false

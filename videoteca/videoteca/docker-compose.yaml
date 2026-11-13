@@ -1,0 +1,187 @@
+# ==============================================================================
+# Videoteca — stack local (base de datos + mensajería Kafka)
+#
+# IMPORTANTE: las contraseñas tienen valores por defecto en este archivo
+# ÚNICAMENTE para que el stack pueda arrancar sin configuración previa
+# (desarrollo local). En cualquier entorno real deben externalizarse, por
+# ejemplo a través de un archivo `.env` junto a este compose, variables de
+# entorno o un secret manager:
+#   MARIADB_ROOT_PASSWORD
+#   MARIADB_USER / MARIADB_PASSWORD
+# ==============================================================================
+
+services:
+  # Base de datos MariaDB del proyecto videoteca
+  mariadb:
+    image: mariadb:11.8
+    container_name: videoteca_mariadb
+    restart: unless-stopped
+    environment:
+      # Valores por defecto solo para desarrollo; externalizar en producción.
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-videoteca_root_dev}
+      MARIADB_DATABASE: videoteca
+      MARIADB_USER: ${MARIADB_USER:-videoteca}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+    ports:
+      # Solo local (127.0.0.1): no expone la BD a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:3306:3306"
+    volumes:
+      # Named volume gestionado por Docker (declarado en la sección global `volumes:`).
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # phpMyAdmin: gestor web de la base de datos
+  phpmyadmin:
+    # Tag estable fijado (evita "latest"); 5.2 es la última línea estable en Docker Hub (2026-10).
+    image: phpmyadmin/phpmyadmin:5.2
+    container_name: videoteca_phpmyadmin
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): no expone phpMyAdmin a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:8080:80"
+    environment:
+      PMA_HOST: mariadb
+      # Credenciales del usuario de aplicación (coinciden con MARIADB_USER/MARIADB_PASSWORD).
+      PMA_USER: ${MARIADB_USER:-videoteca}
+      PMA_PASSWORD: ${MARIADB_PASSWORD:-videoteca_dev}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  # ============================================================================
+  # Microservicios Spring Boot 4 (Java 25): registro de servicios + API gateway
+  # + mensajería Kafka
+  # ============================================================================
+
+  # Kafka broker (KRaft, nodo único) para el microservicio "kafka"
+  # Dos listeners de datos:
+  #   - EXTERNAL:  accesible desde el host (localhost:9092), para apps fuera de Docker
+  #   - INTERNAL:  accesible desde otros contenedores de esta red (kafka:19092)
+  kafka:
+    # Tag estable fijado (evita "latest"); 4.4 es la última línea estable en Docker Hub (2026-11).
+    image: apache/kafka:4.4.0
+    container_name: videoteca_kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: EXTERNAL://0.0.0.0:9092,INTERNAL://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # En Kafka 4.x se eliminó `controller.quorum`; los votantes del quorum KRaft
+      # se declaran con `controller.quorum.voters` (formato <id>@<host>:<puerto>).
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      # Listener usado para el tráfico inter-broker (debe ser uno de los listeners de datos).
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      # Solo local (127.0.0.1): el listener EXTERNAL está pensado para el host. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:9092:9092"
+    volumes:
+      # Named volume persistente para los datos de Kafka
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Registro de servicios (Spring Cloud Netflix Eureka Server)
+  eureka:
+    build:
+      context: ./services/eureka
+    container_name: videoteca_eureka
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): no expone el registro a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:8761:8761"
+    healthcheck:
+      # La imagen eclipse-temurin:25-jre no incluye curl/wget: comprobación TCP con bash (/dev/tcp).
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8761'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # API gateway reactivo (Spring Cloud Gateway / WebFlux); se registra en Eureka
+  gateway:
+    build:
+      context: ./services/gateway
+    container_name: videoteca_gateway
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): el puerto interno del contenedor es 8080 (expuesto como 8090 en el host).
+      - "127.0.0.1:8090:8080"
+    depends_on:
+      eureka:
+        condition: service_healthy
+    healthcheck:
+      # La imagen eclipse-temurin:25-jre no incluye curl/wget: comprobación TCP con bash (/dev/tcp).
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # Microservicio de mensajería (Spring Boot 4 + Apache Kafka); se registra en Eureka
+  kafka:
+    build:
+      context: ./services/kafka
+    container_name: videoteca_kafka
+    restart: unless-stopped
+    environment:
+      # Usa el listener INTERNAL del broker (red interna de Compose).
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+    ports:
+      # Solo local (127.0.0.1): el puerto interno del contenedor es 8081 (expuesto como 8082 en el host;
+      # 8081 está ocupado por otro stack local). No expone la API a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:8082:8081"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      eureka:
+        condition: service_healthy
+    healthcheck:
+      # La imagen eclipse-temurin:25-jre no incluye curl/wget: comprobación TCP con bash (/dev/tcp).
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # ============================================================================
+  # Microservicio frontend (Nuxt 3): listado de películas
+  # Su endpoint /api/movies llama al gateway en {NUXT_GATEWAY_URL}/api/movies
+  # ============================================================================
+
+  frontend:
+    build:
+      context: ./services/frontend
+    container_name: videoteca_frontend
+    restart: unless-stopped
+    ports:
+      # Solo local (127.0.0.1): no expone el frontend a la LAN. Para acceso remoto, quitar el prefijo 127.0.0.1.
+      - "127.0.0.1:3001:3001"
+    environment:
+      # URL base del gateway vista desde la red interna de Docker
+      # (nombre del servicio `gateway` + puerto interno 8080 del contenedor).
+      NUXT_GATEWAY_URL: ${NUXT_GATEWAY_URL:-http://gateway:8080}
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  # Named volume persistente para los datos de MariaDB
+  mariadb_data:
+  # Named volume persistente para los datos de Kafka
+  kafka_data:

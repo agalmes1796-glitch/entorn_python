@@ -2,8 +2,9 @@ package com.videoteca.notifications.service;
 
 import com.videoteca.notifications.dto.NotificationRequest;
 import com.videoteca.notifications.dto.NotificationResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -25,10 +26,15 @@ public interface NotificationService {
     NotificationResponse getById(UUID id);
 
     /**
-     * Retorna totes les notificacions, o només les de l'estat de lectura
+     * Retorna les notificacions paginades, o només les de l'estat de lectura
      * indicat quan {@code read} és no-null ({@code true}/{@code false}).
+     *
+     * <p>La paginació (pàgina, mida i ordre) ve de {@code pageable}.</p>
+     *
+     * @param read filtre per l'estat de lectura (null: sense filtre)
+     * @param pageable paràmetres de paginació (pàgina, mida, ordre)
      */
-    List<NotificationResponse> getAll(Boolean read);
+    Page<NotificationResponse> getAll(Boolean read, Pageable pageable);
 
     /**
      * Actualitza la notificació indicada per l'id amb els camps de la petició.

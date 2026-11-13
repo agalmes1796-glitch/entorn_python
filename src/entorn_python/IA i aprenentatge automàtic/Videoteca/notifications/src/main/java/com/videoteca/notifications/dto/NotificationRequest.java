@@ -18,6 +18,7 @@ public record NotificationRequest(
         String title,
 
         @NotBlank
+        @Size(max = 255)
         String message,
 
         NotificationType type

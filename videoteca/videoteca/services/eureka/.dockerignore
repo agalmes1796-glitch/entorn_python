@@ -1,0 +1,12 @@
+# Artefactos de build de Maven (se generan dentro del contenedor de build)
+target/
+
+# IDE / SO
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs y entorno
+*.log
+.env

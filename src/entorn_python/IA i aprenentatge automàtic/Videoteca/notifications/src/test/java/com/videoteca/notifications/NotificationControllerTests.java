@@ -8,8 +8,14 @@ import com.videoteca.notifications.model.NotificationType;
 import com.videoteca.notifications.service.NotificationService;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -86,8 +92,7 @@ class NotificationControllerTests {
 
     @Test
     void createDefaultsTypeToInfoWhenMissing() throws Exception {
-        NotificationResponse captured = sampleResponse(false);
-        when(service.create(any(NotificationRequest.class))).thenReturn(captured);
+        when(service.create(any(NotificationRequest.class))).thenReturn(sampleResponse(false));
 
         mockMvc.perform(post("/api/notifications")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -97,6 +102,9 @@ class NotificationControllerTests {
                 .andExpect(status().isCreated());
 
         // El tipus per defecte el normalitza el record (no el servei simulat).
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(service).create(captor.capture());
+        assertThat(captor.getValue().type()).isEqualTo(NotificationType.INFO);
     }
 
     @Test
@@ -116,34 +124,140 @@ class NotificationControllerTests {
         verifyNoInteractions(service);
     }
 
+    /** Missatge de 256 caràcters (un més que el màxim) → 400 amb el camp 'message'. */
+    @Test
+    void createReturns400WhenMessageIsLongerThan255Chars() throws Exception {
+        String longMessage = "x".repeat(256);
+
+        mockMvc.perform(post("/api/notifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Títol\",\"message\":\"" + longMessage + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.field").value("message"));
+
+        verifyNoInteractions(service);
+    }
+
+    /** Missatge de 255 caràcters (exactament el màxim) → 201. */
+    @Test
+    void createReturns201WhenMessageIsExactly255Chars() throws Exception {
+        when(service.create(any(NotificationRequest.class))).thenReturn(sampleResponse(false));
+        String message255 = "x".repeat(255);
+
+        mockMvc.perform(post("/api/notifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Títol\",\"message\":\"" + message255 + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(ID.toString()));
+
+        verify(service).create(any(NotificationRequest.class));
+    }
+
+    /** JSON malformat (no parsejable) → 400 amb ApiError. */
+    @Test
+    void createReturns400WhenBodyIsNotValidJson() throws Exception {
+        mockMvc.perform(post("/api/notifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Títol\" message\":\"\""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.path").value("/api/notifications"));
+
+        verifyNoInteractions(service);
+    }
+
+    /** Valor del camp 'type' que no és un valor de l'enum → 400 amb ApiError. */
+    @Test
+    void createReturns400WhenTypeIsNotAValidEnumValue() throws Exception {
+        mockMvc.perform(post("/api/notifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Títol","message":"Missatge","type":"NO_EXISTENT"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").isNotEmpty());
+
+        verifyNoInteractions(service);
+    }
+
     // ---------- GET ----------
 
+    /** Llistat paginat per defecte: body amb content/totalElements/totalPages/number/size. */
     @Test
-    void getAllReturns200WithList() throws Exception {
-        when(service.getAll(null)).thenReturn(List.of(sampleResponse(false), sampleResponse(true)));
+    void getAllReturns200WithPage() throws Exception {
+        Page<NotificationResponse> page = new PageImpl<>(
+                List.of(sampleResponse(false), sampleResponse(true)),
+                PageRequest.of(0, 20, Sort.by("createdAt").descending()),
+                2);
+        when(service.getAll(eq(null), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/notifications"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].id").value(ID.toString()))
-                .andExpect(jsonPath("$[1].read").value(true));
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(ID.toString()))
+                .andExpect(jsonPath("$.content[1].read").value(true))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.number").value(0))
+                .andExpect(jsonPath("$.size").value(20));
+
+        // El controlador construeix el Pageable per defecte: pàgina 0, mida 20,
+        // ordre descendent per createdAt.
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(service).getAll(eq(null), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt"))
+                .isNotNull()
+                .extracting(Sort.Order::getDirection)
+                .isEqualTo(Sort.Direction.DESC);
     }
 
+    /** El filtre read=true/false es delega al servei (i el body segueix sent Page). */
     @Test
     void getAllPassesTheReadFilterToTheService() throws Exception {
-        when(service.getAll(true)).thenReturn(List.of(sampleResponse(true)));
-        when(service.getAll(false)).thenReturn(List.of());
+        Page<NotificationResponse> readPage = new PageImpl<>(
+                List.of(sampleResponse(true)),
+                PageRequest.of(0, 20, Sort.by("createdAt").descending()),
+                1);
+        Page<NotificationResponse> unreadPage =
+                Page.empty(PageRequest.of(0, 20, Sort.by("createdAt").descending()));
+        when(service.getAll(eq(true), any(Pageable.class))).thenReturn(readPage);
+        when(service.getAll(eq(false), any(Pageable.class))).thenReturn(unreadPage);
 
         mockMvc.perform(get("/api/notifications").param("read", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1));
 
         mockMvc.perform(get("/api/notifications").param("read", "false"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
 
-        verify(service).getAll(true);
-        verify(service).getAll(false);
+        verify(service).getAll(eq(true), any(Pageable.class));
+        verify(service).getAll(eq(false), any(Pageable.class));
+    }
+
+    /** ?size=500 s'acota a 100 elements al servidor. */
+    @Test
+    void getAllCapsTheSizeAtTheServerMaximum() throws Exception {
+        when(service.getAll(eq(null), any(Pageable.class)))
+                .thenReturn(Page.empty(PageRequest.of(0, 100, Sort.by("createdAt").descending())));
+
+        mockMvc.perform(get("/api/notifications").param("page", "0").param("size", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(100));
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(service).getAll(eq(null), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
     }
 
     @Test
@@ -165,6 +279,33 @@ class NotificationControllerTests {
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.path").value("/api/notifications/" + ID));
+    }
+
+    /** id que no és un UUID → 400 amb ApiError i el paràmetre afectat. */
+    @Test
+    void getByIdReturns400WhenIdIsNotAUuid() throws Exception {
+        mockMvc.perform(get("/api/notifications/not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.field").value("id"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.path").value("/api/notifications/not-a-uuid"));
+
+        verifyNoInteractions(service);
+    }
+
+    /** Excepció inesperada del servei → 500 amb missatge genèric. */
+    @Test
+    void getByIdReturns500WithGenericMessageWhenAnUnexpectedErrorOccurs() throws Exception {
+        when(service.getById(ID)).thenThrow(new IllegalStateException("boom"));
+
+        mockMvc.perform(get("/api/notifications/{id}", ID))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.error").value("Internal Server Error"))
+                .andExpect(jsonPath("$.message").value("Internal error"))
                 .andExpect(jsonPath("$.path").value("/api/notifications/" + ID));
     }
 

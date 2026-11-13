@@ -7,6 +7,13 @@ server:
 spring:
   application:
     name: notifications
+  data:
+    web:
+      pageable:
+        # Límit de mida de pàgina per a les consultes paginades de l'API:
+        # mai més de 100 elements per pàgina (el controlador també aplica
+        # aquest límit en construir el Pageable).
+        max-page-size: 100
   datasource:
     # Per defecte, MariaDB local de desenvolupament. Dins de Docker,
     # docker-compose ho sobreescriu amb les variables d'entorn estàndard:
